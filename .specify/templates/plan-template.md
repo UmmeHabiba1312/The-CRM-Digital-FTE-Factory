@@ -31,7 +31,31 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Verify against `.specify/memory/constitution.md`:
+
+- [ ] **I. Agent Maturity Model** — Incubation artifacts exist before any
+      production code is proposed (discovery-log.md, transition-checklist.md).
+- [ ] **II. Channel-First Design** — Feature handles Email, WhatsApp, and Web
+      Form explicitly; no channel-agnostic response path.
+- [ ] **III. PostgreSQL Is the CRM** — No external CRM dependency introduced;
+      schema changes go through `database/migrations/`; `asyncpg` used.
+- [ ] **IV. Event-Driven by Default** — Ticket processing flows through Kafka;
+      no direct service-to-service HTTP for intake; DLQ topic defined.
+- [ ] **V. Test-First** — Tests written and failing before implementation;
+      transition tests pass before production phase begins.
+- [ ] **VI. Security & Secrets** — No hardcoded secrets; Twilio webhooks
+      validated; `.env` not committed.
+- [ ] **VII. 24/7 Readiness** — K8s probes, resource limits, and HPA defined;
+      uptime/latency/escalation targets stated.
+- [ ] **VIII. Cross-Channel Identity** — `customer_identifiers` used for
+      resolution; history spans all channels.
+- [ ] **IX. Observability** — Structured logging; metrics endpoint; tool calls
+      stored in `messages.tool_calls`.
+- [ ] **X. Smallest Viable Change** — No speculative features, topics, or
+      tables beyond current requirements.
+
+> **Violations**: Document each in the `Complexity Tracking` table below with
+> justification.
 
 ## Project Structure
 
