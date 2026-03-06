@@ -21,6 +21,9 @@ google-cloud-pubsub>=2.21.0
 # WhatsApp / Twilio channel
 twilio>=9.0.0
 
+# Observability
+prometheus-fastapi-instrumentator>=0.9.1
+
 # Testing
 pytest>=8.2.0
 pytest-asyncio>=0.23.0

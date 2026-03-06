@@ -1,0 +1,179 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: fte-alerts
+  namespace: customer-success-fte
+  labels:
+    release: prometheus
+spec:
+  groups:
+    # -----------------------------------------------------------------------
+    # Latency SLO — Constitution Principle VII: p95 < 3 s
+    # -----------------------------------------------------------------------
+    - name: fte.latency
+      rules:
+        - alert: HighP95Latency
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(http_request_duration_seconds_bucket{
+                job="fte-api",
+                handler!~"/health|/metrics.*"
+              }[5m])) by (le)
+            ) > 3.0
+          for: 2m
+          labels:
+            severity: warning
+            team: customer-success
+          annotations:
+            summary: "p95 latency exceeds 3-second SLO"
+            description: >
+              The 95th percentile request latency is {{ $value | humanizeDuration }},
+              which exceeds the 3-second SLO defined in Constitution Principle VII.
+              Check agent response times and DB query performance.
+            runbook_url: "https://github.com/UmmeHabiba1312/The-CRM-Digital-FTE-Factory/blob/main/docs/runbook.md#high-p95-latency"
+
+        - alert: CriticalP95Latency
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(http_request_duration_seconds_bucket{
+                job="fte-api",
+                handler!~"/health|/metrics.*"
+              }[5m])) by (le)
+            ) > 10.0
+          for: 1m
+          labels:
+            severity: critical
+            team: customer-success
+          annotations:
+            summary: "p95 latency critically high (>10s)"
+            description: >
+              p95 latency is {{ $value | humanizeDuration }}.
+              Immediate investigation required.
+
+    # -----------------------------------------------------------------------
+    # Error rate SLO — Constitution Principle IX: error rate < 1%
+    # -----------------------------------------------------------------------
+    - name: fte.errors
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_requests_total{
+              job="fte-api",
+              status=~"5.."
+            }[5m]))
+            /
+            sum(rate(http_requests_total{job="fte-api"}[5m]))
+            > 0.01
+          for: 2m
+          labels:
+            severity: warning
+            team: customer-success
+          annotations:
+            summary: "HTTP 5xx error rate exceeds 1% SLO"
+            description: >
+              Error rate is {{ $value | humanizePercentage }}.
+              Check worker logs and DLQ for failed messages.
+            runbook_url: "https://github.com/UmmeHabiba1312/The-CRM-Digital-FTE-Factory/blob/main/docs/runbook.md#high-error-rate"
+
+        - alert: CriticalErrorRate
+          expr: |
+            sum(rate(http_requests_total{
+              job="fte-api",
+              status=~"5.."
+            }[5m]))
+            /
+            sum(rate(http_requests_total{job="fte-api"}[5m]))
+            > 0.05
+          for: 1m
+          labels:
+            severity: critical
+            team: customer-success
+          annotations:
+            summary: "HTTP 5xx error rate critically high (>5%)"
+            description: >
+              Error rate is {{ $value | humanizePercentage }}.
+              Immediate rollback may be required.
+
+    # -----------------------------------------------------------------------
+    # Escalation rate — Constitution Principle VII: < 25%
+    # -----------------------------------------------------------------------
+    - name: fte.escalations
+      rules:
+        - alert: HighEscalationRate
+          expr: |
+            (
+              sum(increase(agent_metrics_escalations_total[1h]))
+              /
+              sum(increase(agent_metrics_messages_total[1h]))
+            ) > 0.25
+          for: 5m
+          labels:
+            severity: warning
+            team: customer-success
+          annotations:
+            summary: "Agent escalation rate exceeds 25% SLO"
+            description: >
+              Escalation rate is {{ $value | humanizePercentage }} over the last hour.
+              Review agent logs for common escalation triggers and knowledge base gaps.
+            runbook_url: "https://github.com/UmmeHabiba1312/The-CRM-Digital-FTE-Factory/blob/main/docs/runbook.md#high-escalation-rate"
+
+    # -----------------------------------------------------------------------
+    # Pod availability — minimum 3 replicas per HPA spec
+    # -----------------------------------------------------------------------
+    - name: fte.availability
+      rules:
+        - alert: APIPodsLow
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="customer-success-fte",
+              deployment="fte-api"
+            } < 2
+          for: 1m
+          labels:
+            severity: critical
+            team: customer-success
+          annotations:
+            summary: "FTE API has fewer than 2 available pods"
+            description: >
+              Only {{ $value }} API pod(s) are available.
+              HPA minimum is 3 — check node resources and pod events.
+
+        - alert: WorkerPodsLow
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="customer-success-fte",
+              deployment="fte-message-processor"
+            } < 2
+          for: 1m
+          labels:
+            severity: critical
+            team: customer-success
+          annotations:
+            summary: "FTE worker has fewer than 2 available pods"
+            description: >
+              Only {{ $value }} worker pod(s) are available.
+              Kafka message processing may be delayed.
+
+    # -----------------------------------------------------------------------
+    # DLQ growth — silent drops prohibited (Constitution Principle IV)
+    # -----------------------------------------------------------------------
+    - name: fte.dlq
+      rules:
+        - alert: DLQGrowing
+          expr: |
+            increase(kafka_consumer_group_lag{
+              topic="fte.dlq",
+              namespace="customer-success-fte"
+            }[10m]) > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: customer-success
+          annotations:
+            summary: "Dead Letter Queue is growing"
+            description: >
+              More than 5 messages were added to fte.dlq in the last 10 minutes.
+              Review worker logs for repeated processing failures.
+            runbook_url: "https://github.com/UmmeHabiba1312/The-CRM-Digital-FTE-Factory/blob/main/docs/runbook.md#dlq-drain"

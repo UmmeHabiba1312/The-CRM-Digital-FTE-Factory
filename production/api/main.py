@@ -9,6 +9,7 @@ from datetime import datetime
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from database.queries import (
     close_db_pool,
@@ -38,6 +39,9 @@ app.add_middleware(
 )
 
 app.include_router(web_form_router)
+
+# Prometheus metrics — exposes /metrics for Prometheus scraping (Principle IX)
+Instrumentator().instrument(app).expose(app, endpoint="/metrics/prometheus")
 
 gmail_handler    = GmailHandler()
 whatsapp_handler = WhatsAppHandler()
@@ -69,7 +73,7 @@ async def shutdown() -> None:
 @app.get("/health")
 async def health_check():
     return {
-        "status": "healthy",
+        "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
         "channels": {"email": "active", "whatsapp": "active", "web_form": "active"},
     }

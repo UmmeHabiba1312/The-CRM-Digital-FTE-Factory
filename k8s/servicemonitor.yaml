@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fte-api-monitor
+  namespace: customer-success-fte
+  labels:
+    app: fte-api
+    release: prometheus   # match Prometheus Operator selector label
+spec:
+  selector:
+    matchLabels:
+      app: fte-api
+  endpoints:
+    - port: http
+      path: /metrics/prometheus
+      interval: 15s
+      scrapeTimeout: 10s
