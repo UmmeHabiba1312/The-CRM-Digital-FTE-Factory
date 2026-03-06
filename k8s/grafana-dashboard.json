@@ -1,0 +1,354 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource for FTE metrics",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" }
+  ],
+  "annotations": { "list": [] },
+  "description": "NovaFlow Customer Success FTE — Channel KPIs & SLO Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "SLO Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2000 },
+              { "color": "red", "value": 3000 }
+            ]
+          },
+          "unit": "ms",
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none" },
+      "title": "p95 Latency",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"fte-api\", handler!~\"/health|/metrics.*\"}[5m])) by (le)) * 1000",
+          "legendFormat": "p95 ms",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.15 },
+              { "color": "red", "value": 0.25 }
+            ]
+          },
+          "unit": "percentunit",
+          "max": 1
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none" },
+      "title": "Escalation Rate (1h)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(agent_metrics_escalations_total[1h])) / sum(increase(agent_metrics_messages_total[1h]))",
+          "legendFormat": "escalation rate",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.005 },
+              { "color": "red", "value": 0.01 }
+            ]
+          },
+          "unit": "percentunit",
+          "max": 1
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none" },
+      "title": "Error Rate (5m)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(rate(http_requests_total{job=\"fte-api\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"fte-api\"}[5m]))",
+          "legendFormat": "error rate",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "green", "value": 3 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none" },
+      "title": "API Pods Available",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "kube_deployment_status_replicas_available{namespace=\"customer-success-fte\", deployment=\"fte-api\"}",
+          "legendFormat": "pods",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "green", "value": 3 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none" },
+      "title": "Worker Pods Available",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "kube_deployment_status_replicas_available{namespace=\"customer-success-fte\", deployment=\"fte-message-processor\"}",
+          "legendFormat": "pods",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "Latency",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "p50" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "p95" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "p99" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 10,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Request Latency Percentiles",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"fte-api\"}[5m])) by (le)) * 1000",
+          "legendFormat": "p50", "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"fte-api\"}[5m])) by (le)) * 1000",
+          "legendFormat": "p95", "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"fte-api\"}[5m])) by (le)) * 1000",
+          "legendFormat": "p99", "refId": "C"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "lineWidth": 2, "fillOpacity": 10 } } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 11,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Request Rate by Channel",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=\"fte-api\", handler=\"/support\"}[5m]))",
+          "legendFormat": "web_form", "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"fte-api\", handler=\"/webhooks/whatsapp\"}[5m]))",
+          "legendFormat": "whatsapp", "refId": "B"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{job=\"fte-api\", handler=\"/webhooks/gmail\"}[5m]))",
+          "legendFormat": "email", "refId": "C"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "Agent & Escalation Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "lineWidth": 2, "fillOpacity": 10 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "SLO limit (25%)" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "custom.lineStyle", "value": { "fill": "dash" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "id": 20,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Escalation Rate Over Time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(agent_metrics_escalations_total[5m])) / sum(rate(agent_metrics_messages_total[5m]))",
+          "legendFormat": "escalation rate", "refId": "A"
+        },
+        {
+          "expr": "0.25",
+          "legendFormat": "SLO limit (25%)", "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 10 } } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "id": 21,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Message Volume by Channel",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(increase(agent_metrics_messages_total{channel=\"email\"}[5m]))",
+          "legendFormat": "email", "refId": "A"
+        },
+        {
+          "expr": "sum(increase(agent_metrics_messages_total{channel=\"whatsapp\"}[5m]))",
+          "legendFormat": "whatsapp", "refId": "B"
+        },
+        {
+          "expr": "sum(increase(agent_metrics_messages_total{channel=\"web_form\"}[5m]))",
+          "legendFormat": "web_form", "refId": "C"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 103,
+      "title": "Infrastructure",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 5 } } },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 24 },
+      "id": 30,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Pod Replicas (API + Worker)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas_available{namespace=\"customer-success-fte\", deployment=\"fte-api\"}",
+          "legendFormat": "api", "refId": "A"
+        },
+        {
+          "expr": "kube_deployment_status_replicas_available{namespace=\"customer-success-fte\", deployment=\"fte-message-processor\"}",
+          "legendFormat": "worker", "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 5 } } },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 24 },
+      "id": 31,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Kafka Consumer Lag (fte.tickets.incoming)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "kafka_consumer_group_lag{topic=\"fte.tickets.incoming\", namespace=\"customer-success-fte\"}",
+          "legendFormat": "lag", "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["fte", "customer-success", "slo"],
+  "templating": { "list": [] },
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "NovaFlow Customer Success FTE",
+  "uid": "novaflow-fte-v1",
+  "version": 1
+}

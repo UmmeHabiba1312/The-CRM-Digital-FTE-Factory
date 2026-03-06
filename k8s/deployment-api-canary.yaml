@@ -1,0 +1,94 @@
+# =============================================================================
+# Canary Deployment — FTE API
+# =============================================================================
+# Strategy: 10% traffic split via replica ratio.
+# Stable: 9 replicas (deployment-api.yaml)
+# Canary: 1 replica (this file) — ~10% of traffic
+#
+# Both deployments share the same Service selector label (app: fte-api).
+# The Service load-balances across all pods (stable + canary) proportionally.
+#
+# Promotion workflow:
+#   1. Apply this file to deploy canary
+#   2. Watch Grafana dashboard for 10 min — check error rate, p95 latency
+#   3. If healthy: update stable image tag and delete canary
+#   4. If degraded: kubectl delete -f k8s/deployment-api-canary.yaml
+#
+# Usage:
+#   kubectl apply -f k8s/deployment-api-canary.yaml
+#   kubectl -n customer-success-fte get pods -l track=canary
+#   kubectl delete -f k8s/deployment-api-canary.yaml   # rollback
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fte-api-canary
+  namespace: customer-success-fte
+  labels:
+    app: fte-api
+    track: canary
+  annotations:
+    deployment.kubernetes.io/canary: "true"
+    deployment.kubernetes.io/canary-weight: "10"
+spec:
+  replicas: 1                        # 1 canary vs 9 stable = ~10% traffic
+  selector:
+    matchLabels:
+      app: fte-api
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: fte-api                 # matches Service selector — receives live traffic
+        track: canary
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics/prometheus"
+    spec:
+      containers:
+        - name: fte-api
+          image: your-registry/customer-success-fte:${CANARY_VERSION}
+          command:
+            - uvicorn
+            - production.api.main:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --workers
+            - "2"
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: fte-config
+            - secretRef:
+                name: fte-secrets
+          env:
+            - name: DEPLOYMENT_TRACK
+              value: "canary"
+            - name: CANARY_VERSION
+              value: "${CANARY_VERSION}"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 2
